@@ -7,25 +7,45 @@ import bpy
 ed_ctrl_idx = None
 
 
-def match_collections(patterns, view_layer=None):
-    vl = bpy.context.view_layer if not view_layer else view_layer
-    cllctns_to_match = deque([vl.layer_collection])
+def match_children(roots, patterns):
+    # vl = bpy.context.view_layer if not view_layer else view_layer
+    # vl.layer_collection
+    tomatch = deque(roots)
     matchs = defaultdict(list)
-
-    while cllctns_to_match:
-        cllctn = cllctns_to_match.popleft()
+    while tomatch:
+        e = tomatch.popleft()
         for i, p in enumerate(patterns):
-            if re.fullmatch(p, cllctn.name):
-                matchs[cllctn].append(i)
-        cllctns_to_match.extend(cllctn.children)
-
+            if re.fullmatch(p, e.name):
+                matchs[e].append(i)
+        tomatch.extend(e.children)
     return matchs
 
 
-def update_collections(self, context):
-    strs = [p.value for p in self.patterns]
+def match_entries(entries, patterns):
+    matchs = defaultdict(list)
+    for e in entries:
+        for i, p in enumerate(patterns):
+            if re.fullmatch(p, e.name):
+                matchs[e].append(i)
+    return matchs
+
+
+def _hide_collection(col, hide):
+    col.hide_viewport = hide
+def _hide_object(ob, hide):
+    ob.hide_set(hide)
+
+
+def update_targets(self, context):
+    pats = [p.value for p in self.patterns]
     invs = [p.invert for p in self.patterns]
-    matchs = match_collections(strs)
+    vl = context.view_layer
+    if self.trgt == 'OBJ':
+        matchs = match_entries(vl.objects, pats)
+        hide = _hide_object
+    else:
+        matchs = match_children([vl.layer_collection], pats)
+        hide = _hide_collection
 
     def as_int(index):
         try:
@@ -38,42 +58,42 @@ def update_collections(self, context):
         # Hide every collection matched by any pattern
         # Show collections matched by active pattern
         # If inversion is True, swap hide and show
-        for cllctn, indcs in matchs.items():
-            cllctn.hide_viewport = (index in indcs) == inv
+        for match, indcs in matchs.items():
+            hide(match, (index in indcs) == inv)
 
     if self.type == 'BOOL':
-        for cllctn, indcs in matchs.items():
+        for match, indcs in matchs.items():
             # Invert if the first pattern this collection matched to
             # is inverted
-            inv = invs[indcs[0]]
-            cllctn.hide_viewport = self.boolp == inv
+            hide(match, self.boolp == invs[indcs[0]])
     elif self.type == 'INT':
         as_int(self.intp)
     elif self.type == 'ENUM':
         as_int(int(self.enump))
 
 
-def update_cllctns_as_pattern(self, context):
+def update_targets_as_pattern(self, context):
     ctrl = context.scene.ctrls[ed_ctrl_idx]
-    update_collections(ctrl, context)
+    update_targets(ctrl, context)
 
 
 def get_enum(self, context):
     ret = []
     for i, p in enumerate(self.patterns):
-        label = p.value if not p.enum_entry else p.enum_entry
+        label = p.enum_entry or p.value
         ret.append((str(i), label, ""))
     return ret
 
 
 class PatternProperty(bpy.types.PropertyGroup):
     value: bpy.props.StringProperty(default="Collection")
-    invert: bpy.props.BoolProperty(update=update_cllctns_as_pattern)
+    invert: bpy.props.BoolProperty(update=update_targets_as_pattern)
     enum_entry: bpy.props.StringProperty()
 
 
 class ControlProperty(bpy.types.PropertyGroup):
     type: bpy.props.EnumProperty(
+        name="Type",
         items=(
             ('BOOL', "Boolean", ""),
             ('INT', "Integer", ""),
@@ -81,17 +101,24 @@ class ControlProperty(bpy.types.PropertyGroup):
         ),
     )
     patterns: bpy.props.CollectionProperty(type=PatternProperty)
-    name: bpy.props.StringProperty()
+    name: bpy.props.StringProperty(name="Name")
     boolp: bpy.props.BoolProperty(
-        update=update_collections,
+        update=update_targets,
     )
     intp: bpy.props.IntProperty(
-        update=update_collections,
+        update=update_targets,
     )
     enump: bpy.props.EnumProperty(
         name="",
         items=get_enum,
-        update=update_collections,
+        update=update_targets,
+    )
+    trgt: bpy.props.EnumProperty(
+        name="Target",
+        items=(
+            ('OBJ', "Objects", ""),
+            ('COL', "Collections", ""),
+        )
     )
 
 
@@ -135,8 +162,9 @@ class VIEW3D_PT_ControlCenter_Manage(bpy.types.Panel):
         # Name & Type
         lyt = self.layout
         ctrl = context.scene.ctrls[ed_ctrl_idx]
-        lyt.prop(ctrl, "name", text="Name")
-        lyt.prop(ctrl, "type", text="Type")
+        lyt.prop(ctrl, "name")
+        lyt.prop(ctrl, "type")
+        lyt.prop(ctrl, "trgt")
 
         # Patterns
         box = lyt.box()
@@ -166,7 +194,7 @@ class VIEW3D_PT_ControlCenter_Manage(bpy.types.Panel):
                 box.prop(p, "enum_entry", text=str(i), icon_only=True)
 
         row = lyt.row()
-        row.operator("control_center.del_control")
+        row.operator("control_center.del_control", text="Delete")
         row.operator("control_center.close_manage")
 
 
