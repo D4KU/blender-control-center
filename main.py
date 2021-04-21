@@ -37,8 +37,8 @@ def _hide_object(ob, hide):
 
 
 def update_targets(self, context):
-    pats = [p.value for p in self.patterns]
-    invs = [p.invert for p in self.patterns]
+    pats = [p.name for p in self.pgroups]
+    invs = [p.invert for p in self.pgroups]
     vl = context.view_layer
     if self.trgt == 'OBJ':
         matchs = match_entries(vl.objects, pats)
@@ -80,35 +80,48 @@ def update_targets_as_pattern(self, context):
 def get_enum(self, context):
     ret = []
     for i, p in enumerate(self.patterns):
-        label = p.enum_entry or p.value
+        label = p.enum_entry or p.name
         ret.append((str(i), label, ""))
     return ret
 
 
-class PatternProperty(bpy.types.PropertyGroup):
-    value: bpy.props.StringProperty(default="Collection")
-    invert: bpy.props.BoolProperty(update=update_targets_as_pattern)
-    enum_entry: bpy.props.StringProperty()
+class Pattern(bpy.types.PropertyGroup):
+    name: bpy.props.StringProperty()
+    # invert: bpy.props.BoolProperty(update=update_targets_as_pattern)
+    ob_ref: bpy.props.PointerProperty(type=bpy.types.Object)
+    col_ref: bpy.props.PointerProperty(type=bpy.types.Collection)
 
 
-class ControlProperty(bpy.types.PropertyGroup):
+class PatternGroup(bpy.types.PropertyGroup):
+    name: bpy.props.StringProperty(name="Name")
+    patterns: bpy.props.CollectionProperty(type=Pattern)
+    matchby: bpy.props.EnumProperty(
+        name="Match by",
+        items=(
+            ('NAME', "Name"     , ""),
+            ('REF' , "Reference", ""),
+        )
+    )
+
+
+class Control(bpy.types.PropertyGroup):
     type: bpy.props.EnumProperty(
         name="Type",
         items=(
-            ('BOOL', "Boolean", ""),
-            ('INT', "Integer", ""),
+            ('BOOL', "Boolean"    , ""),
+            ('INT' , "Integer"    , ""),
             ('ENUM', "Enumeration", ""),
         ),
     )
-    patterns: bpy.props.CollectionProperty(type=PatternProperty)
+    pgroups: bpy.props.CollectionProperty(type=PatternGroup)
     name: bpy.props.StringProperty(name="Name")
-    boolp: bpy.props.BoolProperty(
+    bval: bpy.props.BoolProperty(
         update=update_targets,
     )
-    intp: bpy.props.IntProperty(
+    ival: bpy.props.IntProperty(
         update=update_targets,
     )
-    enump: bpy.props.EnumProperty(
+    dval: bpy.props.EnumProperty(
         name="",
         items=get_enum,
         update=update_targets,
@@ -116,8 +129,8 @@ class ControlProperty(bpy.types.PropertyGroup):
     trgt: bpy.props.EnumProperty(
         name="Target",
         items=(
-            ('OBJ', "Objects", ""),
-            ('COL', "Collections", ""),
+            ('ob_ref' , "Objects"    , ""),
+            ('col_ref', "Collections", ""),
         )
     )
 
@@ -133,11 +146,12 @@ class VIEW3D_PT_ControlCenter_Use(bpy.types.Panel):
         col1 = split.column()
         col2 = split.column()
         for i, c in enumerate(context.scene.ctrls):
-            propstr = "boolp"
             if c.type == 'INT':
-                propstr = "intp"
+                propstr = "ival"
             elif c.type == 'ENUM':
-                propstr = "enump"
+                propstr = "dval"
+            else:
+                propstr = "bval"
 
             col1.prop(c, propstr, text=c.name)
             op = col2.operator(
@@ -166,39 +180,68 @@ class VIEW3D_PT_ControlCenter_Manage(bpy.types.Panel):
         lyt.prop(ctrl, "type")
         lyt.prop(ctrl, "trgt")
 
-        # Patterns
-        box = lyt.box()
-        split = box.split(factor=.8)
-        col1 = split.column()
-        col2 = split.column()
-        col3 = split.column()
-        col1.label(text="Patterns")
-        col2.label(text="")
-        col3.operator("control_center.add_pattern", text="", icon='ADD')
-        for i, p in enumerate(ctrl.patterns):
-            col1.prop(p, "value", text=str(i), icon_only=True)
-            col2.prop(p, "invert", icon_only=True, icon='LOOP_BACK')
-            op = col3.operator(
-                "control_center.del_pattern",
+        # Pattern Groups
+
+        def draw_pattern_group(i):
+            group = ctrl.pgroups[i]
+            pattr = "name" if group.matchby == 'NAME' else ctrl.trgt
+
+            gbox = lyt.box()
+            if ctrl.type == 'BOOL':
+                active = ctrl.bval == bool(i)
+            elif ctrl.type == 'INT':
+                active = ctrl.ival == i
+            else:
+                active = ctrl.dval == str(i)
+
+            psplit = gbox.split(factor=.85)
+            pcol1 = psplit.column()
+            pcol2 = psplit.column()
+            gbox.prop(group, "name")
+            gbox.prop(group, "matchby")
+
+            pbox = gbox.box()
+            psplit = pbox.split(factor=.85)
+            pcol1 = psplit.column()
+            pcol2 = psplit.column()
+            pcol1.alert = active
+            pcol1.label(text="Patterns")
+            pcol1.alert = False
+            op = pcol2.operator(
+                "control_center.add_pattern",
                 text="",
+                icon='ADD',
+            )
+            op.group_idx = i
+
+            for j, p in enumerate(group.patterns):
+                pcol1.prop(p, pattr, icon_only=True, text=str(j))
+                op = pcol2.operator(
+                    "control_center.del_pattern",
+                    text="",
+                    icon='REMOVE',
+                )
+                op.group_idx = i
+                op.pat_idx = j
+            op = gbox.operator(
+                "control_center.del_pattern_group",
                 icon='REMOVE',
                 )
-            op.pattern_idx = i
+            op.group_idx = i
 
-        # Dropdown entries
-        if ctrl.type == 'ENUM':
-            box = lyt.box()
-            box.label(text="Dropdown Entries")
-
-            for i, p in enumerate(ctrl.patterns):
-                box.prop(p, "enum_entry", text=str(i), icon_only=True)
+        for i in range(len(ctrl.pgroups)):
+            draw_pattern_group(i)
+        lyt.operator(
+            "control_center.add_pattern_group",
+            icon='ADD',
+            )
 
         row = lyt.row()
-        row.operator("control_center.del_control", text="Delete")
+        row.operator("control_center.del_control")
         row.operator("control_center.close_manage")
 
 
-class Add_Control(bpy.types.Operator):
+class AddControl(bpy.types.Operator):
     bl_idname = 'control_center.add_control'
     bl_label = 'Add Control'
     bl_options = {"REGISTER", "UNDO"}
@@ -208,7 +251,7 @@ class Add_Control(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class Del_Control(bpy.types.Operator):
+class DelControl(bpy.types.Operator):
     bl_idname = 'control_center.del_control'
     bl_label = 'Delete Control'
     bl_options = {"REGISTER", "UNDO"}
@@ -220,7 +263,7 @@ class Del_Control(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class Edit_Control(bpy.types.Operator):
+class EditControl(bpy.types.Operator):
     bl_idname = 'control_center.edit_control'
     bl_label = 'Edit Control'
     ctrl_idx: bpy.props.IntProperty(options={'HIDDEN'})
@@ -231,29 +274,58 @@ class Edit_Control(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class Add_Pattern(bpy.types.Operator):
-    bl_idname = 'control_center.add_pattern'
-    bl_label = 'Add Pattern'
+def add_pattern_group(context):
+    context.scene.ctrls[ed_ctrl_idx].pgroups.add()
+
+
+class AddPatternGroup(bpy.types.Operator):
+    bl_idname = 'control_center.add_pattern_group'
+    bl_label = 'Add Pattern Group'
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
-        context.scene.ctrls[ed_ctrl_idx].patterns.add()
+        add_pattern_group(context)
         return {"FINISHED"}
 
 
-class Del_Pattern(bpy.types.Operator):
-    bl_idname = 'control_center.del_pattern'
-    bl_label = 'Delete Pattern'
+class DelPatternGroup(bpy.types.Operator):
+    bl_idname = 'control_center.del_pattern_group'
+    bl_label = 'Delete Pattern Group'
     bl_options = {"REGISTER", "UNDO"}
-    pattern_idx: bpy.props.IntProperty(options={'HIDDEN'})
+    group_idx: bpy.props.IntProperty(options={'HIDDEN'})
 
     def execute(self, context):
         ctrl = context.scene.ctrls[ed_ctrl_idx]
-        ctrl.patterns.remove(self.pattern_idx)
+        ctrl.pgroups.remove(self.group_idx)
         return {"FINISHED"}
 
 
-class Close_Manage(bpy.types.Operator):
+class AddPattern(bpy.types.Operator):
+    bl_idname = 'control_center.add_pattern'
+    bl_label = 'Add Pattern'
+    bl_options = {"REGISTER", "UNDO"}
+    group_idx: bpy.props.IntProperty(options={'HIDDEN'})
+
+    def execute(self, context):
+        ctrl = context.scene.ctrls[ed_ctrl_idx]
+        ctrl.pgroups[self.group_idx].patterns.add()
+        return {"FINISHED"}
+
+
+class DelPattern(bpy.types.Operator):
+    bl_idname = 'control_center.del_pattern'
+    bl_label = 'Add Pattern'
+    bl_options = {"REGISTER", "UNDO"}
+    group_idx: bpy.props.IntProperty(options={'HIDDEN'})
+    pat_idx: bpy.props.IntProperty(options={'HIDDEN'})
+
+    def execute(self, context):
+        ctrl = context.scene.ctrls[ed_ctrl_idx]
+        ctrl.pgroups[self.group_idx].patterns.remove(self.pat_idx)
+        return {"FINISHED"}
+
+
+class CloseManagePanel(bpy.types.Operator):
     bl_idname = 'control_center.close_manage'
     bl_label = 'Close'
 

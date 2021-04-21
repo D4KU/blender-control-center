@@ -22,16 +22,19 @@ bl_info = {
 
 
 _to_register = (
-    main.PatternProperty,
-    main.ControlProperty,
+    main.Pattern,
+    main.PatternGroup,
+    main.Control,
     main.VIEW3D_PT_ControlCenter_Use,
     main.VIEW3D_PT_ControlCenter_Manage,
-    main.Add_Control,
-    main.Del_Control,
-    main.Edit_Control,
-    main.Add_Pattern,
-    main.Del_Pattern,
-    main.Close_Manage,
+    main.AddControl,
+    main.DelControl,
+    main.EditControl,
+    main.AddPatternGroup,
+    main.DelPatternGroup,
+    main.AddPattern,
+    main.DelPattern,
+    main.CloseManagePanel,
 )
 
 
@@ -40,7 +43,7 @@ def register():
         bpy.utils.register_class(c)
 
     bpy.types.Scene.ctrls =\
-        bpy.props.CollectionProperty(type=main.ControlProperty)
+        bpy.props.CollectionProperty(type=main.Control)
 
 
 def unregister():
