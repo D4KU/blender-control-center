@@ -1,10 +1,12 @@
 import bpy
 from importlib import reload
-from . import main
+from . import props, panels, ops
 
 if "bpy" in locals():
     # Blender already started once
-    reload(main)
+    reload(props)
+    reload(ops)
+    reload(panels)
 
 
 bl_info = {
@@ -22,19 +24,19 @@ bl_info = {
 
 
 _to_register = (
-    main.Pattern,
-    main.PatternGroup,
-    main.Control,
-    main.VIEW3D_PT_ControlCenter_Use,
-    main.VIEW3D_PT_ControlCenter_Manage,
-    main.AddControl,
-    main.DelControl,
-    main.EditControl,
-    main.AddPatternGroup,
-    main.DelPatternGroup,
-    main.AddPattern,
-    main.DelPattern,
-    main.CloseManagePanel,
+    props.Pattern,
+    props.PatternGroup,
+    props.Control,
+    ops.AddControl,
+    ops.DelControl,
+    ops.EditControl,
+    ops.AddPatternGroup,
+    ops.DelPatternGroup,
+    ops.AddPattern,
+    ops.DelPattern,
+    ops.CloseManagePanel,
+    panels.VIEW3D_PT_ControlCenter_Use,
+    panels.VIEW3D_PT_ControlCenter_Manage,
 )
 
 
@@ -43,7 +45,7 @@ def register():
         bpy.utils.register_class(c)
 
     bpy.types.Scene.ctrls =\
-        bpy.props.CollectionProperty(type=main.Control)
+        bpy.props.CollectionProperty(type=props.Control)
 
 
 def unregister():
