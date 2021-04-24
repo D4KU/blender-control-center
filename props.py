@@ -17,17 +17,10 @@ def update_targets(self, context):
         targets = vl.layer_collection.children
         refattr = 'col_ref'
 
-    if self.type == 'BOOL':
-        index = int(self.bval)
-    elif self.type == 'INT':
-        index = self.ival
-    else:
-        index = int(self.eval)
-
-    for i, g in enumerate(self.pgroups):
-        hide = i == index
-        if g.matchby == 'REF':
-            for p in g.patterns:
+    for i, s in enumerate(self.states):
+        hide = i != self.index
+        if s.matchby == 'REF':
+            for p in s.patterns:
                 ref = getattr(p, refattr)
                 try:
                     hide_func(ref, hide)
@@ -38,10 +31,19 @@ def update_targets(self, context):
                     pass
         else:
             for t in targets:
-                for p in g.patterns:
+                for p in s.patterns:
                     if re.fullmatch(p.name, t.name):
                         hide_func(t, hide)
                         break
+
+
+def update_type(self, context):
+    set_index(self, getattr(self, self.propstr))
+    update_targets(self, context)
+
+
+def set_index(self, value):
+    self.index = int(value)
 
 
 class Pattern(bpy.types.PropertyGroup):
@@ -50,7 +52,7 @@ class Pattern(bpy.types.PropertyGroup):
     col_ref: bpy.props.PointerProperty(type=bpy.types.Collection)
 
 
-class PatternGroup(bpy.types.PropertyGroup):
+class State(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(name="Name")
     patterns: bpy.props.CollectionProperty(type=Pattern)
     matchby: bpy.props.EnumProperty(
@@ -70,21 +72,10 @@ class Control(bpy.types.PropertyGroup):
             ('INT' , "Integer"    , ""),
             ('ENUM', "Enumeration", ""),
         ),
+        update=update_type,
     )
-    pgroups: bpy.props.CollectionProperty(type=PatternGroup)
+    states: bpy.props.CollectionProperty(type=State)
     name: bpy.props.StringProperty(name="Name")
-    bval: bpy.props.BoolProperty(
-        update=update_targets,
-    )
-    ival: bpy.props.IntProperty(
-        update=update_targets,
-    )
-    dval: bpy.props.EnumProperty(
-        name="",
-        items=lambda self, _:
-            [(str(i), g.name, "") for i, g in enumerate(self.pgroups)],
-        update=update_targets,
-    )
     trgt: bpy.props.EnumProperty(
         name="Target",
         items=(
@@ -92,3 +83,25 @@ class Control(bpy.types.PropertyGroup):
             ('COL', "Collections", ""),
         )
     )
+    index: bpy.props.IntProperty(
+        update=update_targets,
+    )
+    pBOOL: bpy.props.BoolProperty(
+        get=lambda self: bool(self.index),
+        set=set_index,
+    )
+    pINT: bpy.props.IntProperty(
+        get=lambda self: self.index,
+        set=set_index,
+    )
+    pENUM: bpy.props.EnumProperty(
+        name="",
+        items=lambda self, _:
+            [(str(i), s.name, "") for i, s in enumerate(self.states)],
+        get=lambda self: self.index,
+        set=set_index,
+    )
+
+    @property
+    def propstr(self):
+        return 'p' + str(self.type)

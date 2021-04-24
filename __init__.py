@@ -25,13 +25,13 @@ bl_info = {
 
 _to_register = (
     props.Pattern,
-    props.PatternGroup,
+    props.State,
     props.Control,
     ops.AddControl,
     ops.DelControl,
     ops.EditControl,
-    ops.AddPatternGroup,
-    ops.DelPatternGroup,
+    ops.AddState,
+    ops.DelState,
     ops.AddPattern,
     ops.DelPattern,
     ops.CloseManagePanel,

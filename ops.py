@@ -37,25 +37,28 @@ class EditControl(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class AddPatternGroup(bpy.types.Operator):
-    bl_idname = 'control_center.add_pattern_group'
-    bl_label = 'Add Pattern Group'
+class AddState(bpy.types.Operator):
+    bl_idname = 'control_center.add_state'
+    bl_label = 'Add State'
     bl_options = {"REGISTER", "UNDO"}
+    bl_description = (
+        "A pattern group comprises all patterns belonging to a"
+    )
 
     def execute(self, context):
-        context.scene.ctrls[ed_ctrl_idx].pgroups.add()
+        context.scene.ctrls[ed_ctrl_idx].states.add()
         return {"FINISHED"}
 
 
-class DelPatternGroup(bpy.types.Operator):
-    bl_idname = 'control_center.del_pattern_group'
-    bl_label = 'Delete Pattern Group'
+class DelState(bpy.types.Operator):
+    bl_idname = 'control_center.del_state'
+    bl_label = 'Delete State'
     bl_options = {"REGISTER", "UNDO"}
-    group_idx: bpy.props.IntProperty(options={'HIDDEN'})
+    state_idx: bpy.props.IntProperty(options={'HIDDEN'})
 
     def execute(self, context):
         ctrl = context.scene.ctrls[ed_ctrl_idx]
-        ctrl.pgroups.remove(self.group_idx)
+        ctrl.states.remove(self.state_idx)
         return {"FINISHED"}
 
 
@@ -63,11 +66,11 @@ class AddPattern(bpy.types.Operator):
     bl_idname = 'control_center.add_pattern'
     bl_label = 'Add Pattern'
     bl_options = {"REGISTER", "UNDO"}
-    group_idx: bpy.props.IntProperty(options={'HIDDEN'})
+    state_idx: bpy.props.IntProperty(options={'HIDDEN'})
 
     def execute(self, context):
         ctrl = context.scene.ctrls[ed_ctrl_idx]
-        ctrl.pgroups[self.group_idx].patterns.add()
+        ctrl.states[self.state_idx].patterns.add()
         return {"FINISHED"}
 
 
@@ -75,12 +78,12 @@ class DelPattern(bpy.types.Operator):
     bl_idname = 'control_center.del_pattern'
     bl_label = 'Add Pattern'
     bl_options = {"REGISTER", "UNDO"}
-    group_idx: bpy.props.IntProperty(options={'HIDDEN'})
+    state_idx: bpy.props.IntProperty(options={'HIDDEN'})
     pat_idx: bpy.props.IntProperty(options={'HIDDEN'})
 
     def execute(self, context):
         ctrl = context.scene.ctrls[ed_ctrl_idx]
-        ctrl.pgroups[self.group_idx].patterns.remove(self.pat_idx)
+        ctrl.states[self.state_idx].patterns.remove(self.pat_idx)
         return {"FINISHED"}
 
 

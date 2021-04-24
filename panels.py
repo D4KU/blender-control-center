@@ -13,14 +13,7 @@ class VIEW3D_PT_ControlCenter_Use(bpy.types.Panel):
         col1 = split.column()
         col2 = split.column()
         for i, c in enumerate(context.scene.ctrls):
-            if c.type == 'INT':
-                propstr = "ival"
-            elif c.type == 'ENUM':
-                propstr = "dval"
-            else:
-                propstr = "bval"
-
-            col1.prop(c, propstr, text=c.name)
+            col1.prop(c, c.propstr, text=c.name)
             op = col2.operator(
                 "control_center.edit_control",
                 text="",
@@ -48,59 +41,41 @@ class VIEW3D_PT_ControlCenter_Manage(bpy.types.Panel):
         lyt.prop(ctrl, "type")
         lyt.prop(ctrl, "trgt")
 
-        # Pattern Groups
-        for i in range(len(ctrl.pgroups)):
-            group = ctrl.pgroups[i]
-            pattr = "name" if group.matchby == 'NAME' else refattr
+        for i, s in enumerate(ctrl.states):
+            pattr = "name" if s.matchby == 'NAME' else refattr
 
-            gbox = lyt.box()
-            if ctrl.type == 'BOOL':
-                active = ctrl.bval == bool(i)
-            elif ctrl.type == 'INT':
-                active = ctrl.ival == i
-            else:
-                active = ctrl.dval == str(i)
+            sbox = lyt.box()
+            sbox.prop(s, "name")
+            sbox.prop(s, "matchby")
 
-            psplit = gbox.split(factor=.85)
-            pcol1 = psplit.column()
-            pcol2 = psplit.column()
-            gbox.prop(group, "name")
-            gbox.prop(group, "matchby")
-
-            pbox = gbox.box()
-            psplit = pbox.split(factor=.85)
-            pcol1 = psplit.column()
-            pcol2 = psplit.column()
-            pcol1.alert = active
-            pcol1.label(text="Patterns")
-            pcol1.alert = False
-            op = pcol2.operator(
+            pbox = sbox.box()
+            split = pbox.split(factor=.85)
+            col1 = split.column()
+            col2 = split.column()
+            col1.alert = ctrl.index == i
+            col1.label(text="Patterns")
+            col1.alert = False
+            col2.operator(
                 "control_center.add_pattern",
                 text="",
                 icon='ADD',
-            )
-            op.group_idx = i
+            ).state_idx = i
 
-            for j, p in enumerate(group.patterns):
-                pcol1.prop(p, pattr, icon_only=True, text=str(j))
-                op = pcol2.operator(
+            for j, p in enumerate(s.patterns):
+                col1.prop(p, pattr, icon_only=True, text=str(j))
+                op = col2.operator(
                     "control_center.del_pattern",
                     text="",
                     icon='REMOVE',
                 )
-                op.group_idx = i
+                op.state_idx = i
                 op.pat_idx = j
-            op = gbox.operator(
-                "control_center.del_pattern_group",
+            sbox.operator(
+                "control_center.del_state",
                 icon='REMOVE',
-                )
-            op.group_idx = i
+                ).state_idx = i
 
-        lyt.operator(
-            "control_center.add_pattern_group",
-            icon='ADD',
-            )
-
+        lyt.operator("control_center.add_state", icon='ADD')
         row = lyt.row()
         row.operator("control_center.del_control")
         row.operator("control_center.close_manage")
