@@ -21,6 +21,7 @@ class VIEW3D_PT_ControlCenter_Use(bpy.types.Panel):
                 icon='THREE_DOTS',
                 )
             op.ctrl_idx = i
+        col1.operator("control_center.export_json")
         col2.operator("control_center.add_control", text="", icon='ADD')
 
 

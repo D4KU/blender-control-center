@@ -1,4 +1,5 @@
 import bpy
+from . import export
 
 # Index of control edited in 'Manage' panel
 ed_ctrl_idx = None
@@ -105,4 +106,21 @@ class CloseManagePanel(bpy.types.Operator):
     def execute(self, context):
         global ed_ctrl_idx
         ed_ctrl_idx = None
+        return {"FINISHED"}
+
+
+class ExportJson(bpy.types.Operator):
+    bl_idname = 'control_center.export_json'
+    bl_label = 'Export Json'
+    bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Export the control center setup as Json file"
+    filename: bpy.props.StringProperty(
+        name="File Name",
+        default="export.json",
+        description="Relative path from directory in which Blender runs",
+    )
+
+    def execute(self, context):
+        data = export.serialize_ctrls(context)
+        export.write(data, self.filename)
         return {"FINISHED"}

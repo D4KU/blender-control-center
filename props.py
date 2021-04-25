@@ -7,15 +7,14 @@ from . import ops
 # index
 def update_targets(self, context):
     vl = context.view_layer
+    refattr = self.refpropstr
     if self.trgt == 'OBJ':
         targets = vl.objects
-        refattr = 'ob_ref'
 
         def hide_func(ob, hide):
             ob.hide_set(hide)
     else:
         targets = vl.layer_collection.children
-        refattr = 'col_ref'
 
         def hide_func(col, hide):
             col.hide_viewport = hide
@@ -109,7 +108,6 @@ class State(bpy.types.PropertyGroup):
         )
     )
 
-
 # An input of arbitrary type to control the visibility of referenced
 # objects or collections
 class Control(bpy.types.PropertyGroup):
@@ -160,3 +158,7 @@ class Control(bpy.types.PropertyGroup):
     @property
     def propstr(self):
         return 'p' + str(self.type)
+
+    @property
+    def refpropstr(self):
+        return 'ob_ref' if self.trgt else 'col_ref'

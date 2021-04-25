@@ -35,6 +35,7 @@ _to_register = (
     ops.AddPattern,
     ops.DelPattern,
     ops.CloseManagePanel,
+    ops.ExportJson,
     panels.VIEW3D_PT_ControlCenter_Use,
     panels.VIEW3D_PT_ControlCenter_Manage,
 )
