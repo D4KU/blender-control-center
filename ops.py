@@ -8,6 +8,7 @@ class AddControl(bpy.types.Operator):
     bl_idname = 'control_center.add_control'
     bl_label = 'Add Control'
     bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Add a new control the Control Center"
 
     def execute(self, context):
         context.scene.ctrls.add()
@@ -18,6 +19,7 @@ class DelControl(bpy.types.Operator):
     bl_idname = 'control_center.del_control'
     bl_label = 'Delete Control'
     bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Remove this control from the Control Center"
 
     def execute(self, context):
         global ed_ctrl_idx
@@ -30,6 +32,7 @@ class EditControl(bpy.types.Operator):
     bl_idname = 'control_center.edit_control'
     bl_label = 'Edit Control'
     ctrl_idx: bpy.props.IntProperty(options={'HIDDEN'})
+    bl_description = "Edit this control in the 'Manage' panel"
 
     def execute(self, context):
         global ed_ctrl_idx
@@ -42,7 +45,8 @@ class AddState(bpy.types.Operator):
     bl_label = 'Add State'
     bl_options = {"REGISTER", "UNDO"}
     bl_description = (
-        "A pattern group comprises all patterns belonging to a"
+        "Add a new state to the control. It can comprise several "
+        "patterns activated if the control is set to that state"
     )
 
     def execute(self, context):
@@ -54,6 +58,7 @@ class DelState(bpy.types.Operator):
     bl_idname = 'control_center.del_state'
     bl_label = 'Delete State'
     bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Remove this state from the control"
     state_idx: bpy.props.IntProperty(options={'HIDDEN'})
 
     def execute(self, context):
@@ -66,6 +71,10 @@ class AddPattern(bpy.types.Operator):
     bl_idname = 'control_center.add_pattern'
     bl_label = 'Add Pattern'
     bl_options = {"REGISTER", "UNDO"}
+    bl_description = (
+        "Add a pattern to the state. A pattern matches one or more "
+        "targets hidden when the state is inactive and shown otherwise"
+    )
     state_idx: bpy.props.IntProperty(options={'HIDDEN'})
 
     def execute(self, context):
@@ -78,6 +87,7 @@ class DelPattern(bpy.types.Operator):
     bl_idname = 'control_center.del_pattern'
     bl_label = 'Add Pattern'
     bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Remove this pattern from the state"
     state_idx: bpy.props.IntProperty(options={'HIDDEN'})
     pat_idx: bpy.props.IntProperty(options={'HIDDEN'})
 
@@ -90,6 +100,7 @@ class DelPattern(bpy.types.Operator):
 class CloseManagePanel(bpy.types.Operator):
     bl_idname = 'control_center.close_manage'
     bl_label = 'Close'
+    bl_description = "Close the 'Manage' panel"
 
     def execute(self, context):
         global ed_ctrl_idx
