@@ -3,35 +3,100 @@ import re
 from . import ops
 
 
-# Update targets referenced by the passed control in accordance to its
-# index
+def hide_hierarchy(root, hide, ctrls):
+    stack = [root]
+    while stack:
+        o = stack.pop()
+        if hide:
+            o.hide_set(True)
+        else:
+            o.hide_set(is_ob_in_inactive_state(o, ctrls))
+        stack.extend(o.children)
+
+
+def get_lvl(ob):
+    lvl = -1
+    while ob:
+        ob = ob.parent
+        lvl += 1
+    return lvl
+
+
 def update_targets(self, context):
     vl = context.view_layer
-    refattr = self.refpropstr
+    matchs = []
+
+    def func(*args):
+        matchs.append(args)
+
+    # fill matchs
+    map_to_targets(self, vl.objects, func)
+    matchs.sort(key=lambda x: get_lvl(x[0]))
+
+    for ob, state_idx in matchs:
+        hide_self = state_idx != self.index
+        hide_in_hierarchy = ob.parent.hide_get(view_layer=vl) \
+            if ob.parent else False
+        ctrls = list(context.scene.ctrls)
+        ctrls.remove(self)
+        hide_hierarchy(
+            ob,
+            hide_self or hide_in_hierarchy,
+            ctrls,
+        )
+
+
+def is_ob_in_inactive_state(ob, ctrls):
+    for c in ctrls:
+        for i, s in enumerate(c.states):
+            if c.index == i:
+                continue
+            for p in s.patterns:
+                if s.matchby == 'REF':
+                    if p.ob_ref is ob:
+                        return True
+                else:
+                    if re.fullmatch(p.name, ob.name):
+                        return True
+    return False
+
+
+# Update targets referenced by the passed control in accordance to its
+# index
+def update_targets2(self, context):
+    vl = context.view_layer
     if self.trgt == 'OBJ':
         targets = vl.objects
 
-        def hide_func(ob, hide):
+        def hide_func(ob, i):
+            hide = i != self.index
             ob.hide_set(hide)
     else:
         targets = vl.layer_collection.children
 
-        def hide_func(col, hide):
+        def hide_func(col, i):
+            hide = i != self.index
             col.hide_viewport = hide
 
-    for i, s in enumerate(self.states):
+    map_to_targets(self, targets, hide_func)
+
+
+def map_to_targets(ctrl, targets, func):
+    refattr = ctrl.refpropstr
+    for i, s in enumerate(ctrl.states):
         # Hide targets matched by all inactive states and show all
         # targets matched by the active state
-        hide = i != self.index
         if s.matchby == 'REF':
             # Targets are matched by reference
             # Update all objects/collections referenced by each pattern
             # of the state
             for p in s.patterns:
                 ref = getattr(p, refattr)
+                if not ref:
+                    continue
                 try:
-                    hide_func(ref, hide)
-                except (AttributeError, RuntimeError):
+                    func(ref, i)
+                except RuntimeError:
                     # AttributeError thrown when no object referenced
                     # RuntimeError thrown when object outside view
                     # layer referenced
@@ -44,7 +109,7 @@ def update_targets(self, context):
                 # matches its name
                 for p in s.patterns:
                     if re.fullmatch(p.name, t.name):
-                        hide_func(t, hide)
+                        func(t, i)
                         break
 
 
