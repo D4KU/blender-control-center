@@ -49,15 +49,14 @@ def update_targets(self, context):
 def is_ob_in_inactive_state(ob, ctrls):
     for c in ctrls:
         for i, s in enumerate(c.states):
-            if c.index == i:
-                continue
+            state_inactive = c.index != i
             for p in s.patterns:
                 if s.matchby == 'REF':
                     if p.ob_ref is ob:
-                        return True
+                        return state_inactive
                 else:
                     if re.fullmatch(p.name, ob.name):
-                        return True
+                        return state_inactive
     return False
 
 
@@ -83,7 +82,12 @@ def update_targets2(self, context):
 
 def map_to_targets(ctrl, targets, func):
     refattr = ctrl.refpropstr
-    for i, s in enumerate(ctrl.states):
+
+    # Make sure active state is processed last
+    states = [(i, s) for i, s in enumerate(ctrl.states) if i != ctrl.index]
+    states.append((ctrl.index, ctrl.states[ctrl.index]))
+
+    for i, s in states:
         # Hide targets matched by all inactive states and show all
         # targets matched by the active state
         if s.matchby == 'REF':
