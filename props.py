@@ -85,6 +85,8 @@ def map_to_targets(ctrl, targets, func):
 
     # Make sure active state is processed last
     states = [(i, s) for i, s in enumerate(ctrl.states) if i != ctrl.index]
+    if not states:
+        return
     states.append((ctrl.index, ctrl.states[ctrl.index]))
 
     for i, s in states:
@@ -127,9 +129,8 @@ def update_type(self, context):
     # to that no invalid states can be reached on type change.
     # For example, an enumeration with index 3 would be converted to
     # a bool with index 1 (True).
-    set_index(self, getattr(self, self.propstr))
-    # Set target visible in accordance with new index
-    # update_targets(self, context)
+    if self.states:
+        set_index(self, getattr(self, self.propstr))
 
 
 def set_index(self, value):
@@ -176,6 +177,7 @@ class State(bpy.types.PropertyGroup):
             ('NAME', "Name"     , "Match targets by name"),
         )
     )
+
 
 # An input of arbitrary type to control the visibility of referenced
 # objects or collections
