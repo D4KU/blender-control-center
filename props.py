@@ -3,6 +3,7 @@ import re
 from . import ops
 
 
+# Call a function on each recursive child of passed root object
 def map_to_hierarchy(root, func):
     stack = [root]
     while stack:
@@ -11,6 +12,7 @@ def map_to_hierarchy(root, func):
         stack.extend(o.children)
 
 
+# Get a passed object's deepness in the hierarchy
 def get_lvl(ob):
     lvl = -1
     while ob:
@@ -19,63 +21,87 @@ def get_lvl(ob):
     return lvl
 
 
+def _hide_ob(ob, hide):
+    ob.hide_set(hide)
+
+
+def _unsel_ob(ob, unsel):
+    ob.select_set(not unsel)
+
+
+# Update targets matched by the given control
 def update_targets(ctrl, context):
     vl = context.view_layer
 
     if ctrl.action == 'OBJV':
-        def action(ob, newval):
-            ob.hide_set(newval)
+        action = _hide_ob
     elif ctrl.action == 'OBJS':
-        def action(ob, newval):
-            ob.select_set(not newval)
+        action = _unsel_ob
     else:
-        def action(col, state_idx):
+        def hide_col(col, state_idx):
             col.hide_viewport = state_idx != ctrl.index
-
-        map_to_targets(ctrl, vl.layer_collection.children, action)
+        map_to_targets(ctrl, vl.layer_collection.children, hide_col)
         return
 
-    matchs = []
-    map_to_targets(ctrl, vl.objects, lambda *a: matchs.append(a))
-    matchs.sort(key=lambda x: get_lvl(x[0]))
+    # If the targets are objects, we are interested in a behavior
+    # where a parent hides all its children, even if one of those
+    # children is not hidden itself
+
+    # Find all matches and sort them according to their deepness in the
+    # scene hierarchy. The sorting ensures that children can test their
+    # parents to see weather they need to stay hidden, even though they
+    # themselves are set visible
+    matches = []
+    map_to_targets(ctrl, vl.objects, lambda *a: matches.append(a))
+    matches.sort(key=lambda x: get_lvl(x[0]))
 
     def pass_action_true(ob):
         action(ob, True)
 
-    for ob, state_idx in matchs:
+    for ob, state_idx in matches:
         hide_self = state_idx != ctrl.index
         hide_in_hierarchy = ob.parent.hide_get(view_layer=vl) \
             if ob.parent else False
 
         if hide_self or hide_in_hierarchy:
+            # Object is hidden anyway, no further checks required
             func = pass_action_true
         else:
+            # Prepare list of every control except passed one
             ctrls = list(context.scene.ctrls)
             ctrls.remove(ctrl)
 
+            # Object could be visible. But to let it be, it must be
+            # checked whether this object is matched by any other
+            # inactive state. If so, it stays hidden.
             def func(ob):
                 action(ob, is_ob_in_inactive_state(ob, ctrls))
 
         map_to_hierarchy(ob, func)
 
 
+# Returns True if the passed object is matched by any inactive state
+# in any of the passed controls
 def is_ob_in_inactive_state(ob, ctrls):
     for c in ctrls:
         for i, s in enumerate(c.states):
-            state_inactive = c.index != i
-            for p in s.patterns:
-                if s.matchby == 'REF':
+            if c.index == i:
+                # Not interested in active states
+                continue
+            if s.matchby == 'REF':
+                for p in s.patterns:
                     if p.ob_ref is ob:
-                        return state_inactive
-                else:
+                        return True
+            else:
+                for p in s.patterns:
                     if re.fullmatch(p.name, ob.name):
-                        return state_inactive
+                        return True
     return False
 
 
 # Update targets referenced by the passed control in accordance to its
-# index
-def update_targets2(self, context):
+# index without the behaviour that objects hide their children
+def update_targets_simple(self, context):
     vl = context.view_layer
     if self.action == 'OBJV':
         targets = vl.objects
@@ -96,13 +122,18 @@ def update_targets2(self, context):
     map_to_targets(self, targets, func)
 
 
+# On every target in 'targets', matched by passed control, call passed
+# function
 def map_to_targets(ctrl, targets, func):
     refattr = ctrl.refpropstr
     if not ctrl.states:
         return
 
     # Make sure active state is processed last
-    states = [(i, s) for i, s in enumerate(ctrl.states) if i != ctrl.index]
+    # This is important for controls where a target is matched
+    # by an active and inactive state. An inactive state must not
+    # override an active one.
+    states = [x for x in enumerate(ctrl.states) if x[0] != ctrl.index]
     states.append((ctrl.index, ctrl.states[ctrl.index]))
 
     for i, s in states:
@@ -135,22 +166,22 @@ def map_to_targets(ctrl, targets, func):
                         break
 
 
-def update_targets_from_pattern(self, context):
+def update_targets_from_pattern(_, context):
     ctrl = context.scene.ctrls[ops.ed_ctrl_idx]
     update_targets(ctrl, context)
 
 
-def update_type(self, context):
+def update_type(ctrl, context):
     # Get the index via the old type's property and set it again,
     # to that no invalid states can be reached on type change.
     # For example, an enumeration with index 3 would be converted to
     # a bool with index 1 (True).
-    if self.states:
-        set_index(self, getattr(self, self.propstr))
+    if ctrl.states:
+        set_index(ctrl, getattr(ctrl, ctrl.propstr))
 
 
-def set_index(self, value):
-    self.index = int(value)
+def set_index(ctrl, value):
+    ctrl.index = int(value)
 
 
 # A Pattern is either a regular expression matching a target's name or a
