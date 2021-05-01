@@ -3,14 +3,11 @@ import re
 from . import ops
 
 
-def hide_hierarchy(root, hide, ctrls):
+def map_to_hierarchy(root, func):
     stack = [root]
     while stack:
         o = stack.pop()
-        if hide:
-            o.hide_set(True)
-        else:
-            o.hide_set(is_ob_in_inactive_state(o, ctrls))
+        func(o)
         stack.extend(o.children)
 
 
@@ -22,28 +19,44 @@ def get_lvl(ob):
     return lvl
 
 
-def update_targets(self, context):
+def update_targets(ctrl, context):
     vl = context.view_layer
+
+    if ctrl.action == 'OBJV':
+        def action(ob, newval):
+            ob.hide_set(newval)
+    elif ctrl.action == 'OBJS':
+        def action(ob, newval):
+            ob.select_set(not newval)
+    else:
+        def action(col, state_idx):
+            col.hide_viewport = state_idx != ctrl.index
+
+        map_to_targets(ctrl, vl.layer_collection.children, action)
+        return
+
     matchs = []
-
-    def func(*args):
-        matchs.append(args)
-
-    # fill matchs
-    map_to_targets(self, vl.objects, func)
+    map_to_targets(ctrl, vl.objects, lambda *a: matchs.append(a))
     matchs.sort(key=lambda x: get_lvl(x[0]))
 
+    def pass_action_true(ob):
+        action(ob, True)
+
     for ob, state_idx in matchs:
-        hide_self = state_idx != self.index
+        hide_self = state_idx != ctrl.index
         hide_in_hierarchy = ob.parent.hide_get(view_layer=vl) \
             if ob.parent else False
-        ctrls = list(context.scene.ctrls)
-        ctrls.remove(self)
-        hide_hierarchy(
-            ob,
-            hide_self or hide_in_hierarchy,
-            ctrls,
-        )
+
+        if hide_self or hide_in_hierarchy:
+            func = pass_action_true
+        else:
+            ctrls = list(context.scene.ctrls)
+            ctrls.remove(ctrl)
+
+            def func(ob):
+                action(ob, is_ob_in_inactive_state(ob, ctrls))
+
+        map_to_hierarchy(ob, func)
 
 
 def is_ob_in_inactive_state(ob, ctrls):
@@ -64,29 +77,32 @@ def is_ob_in_inactive_state(ob, ctrls):
 # index
 def update_targets2(self, context):
     vl = context.view_layer
-    if self.trgt == 'OBJ':
+    if self.action == 'OBJV':
         targets = vl.objects
 
-        def hide_func(ob, i):
-            hide = i != self.index
-            ob.hide_set(hide)
+        def func(ob, i):
+            ob.hide_set(i != self.index)
+    elif self.action == 'OBJS':
+        targets = vl.objects
+
+        def func(ob, i):
+            ob.select_set(i != self.index)
     else:
         targets = vl.layer_collection.children
 
-        def hide_func(col, i):
-            hide = i != self.index
-            col.hide_viewport = hide
+        def func(col, i):
+            col.hide_viewport = i != self.index
 
-    map_to_targets(self, targets, hide_func)
+    map_to_targets(self, targets, func)
 
 
 def map_to_targets(ctrl, targets, func):
     refattr = ctrl.refpropstr
+    if not ctrl.states:
+        return
 
     # Make sure active state is processed last
     states = [(i, s) for i, s in enumerate(ctrl.states) if i != ctrl.index]
-    if not states:
-        return
     states.append((ctrl.index, ctrl.states[ctrl.index]))
 
     for i, s in states:
@@ -197,12 +213,13 @@ class Control(bpy.types.PropertyGroup):
     )
     name: bpy.props.StringProperty(name="Name")
     states: bpy.props.CollectionProperty(type=State)
-    trgt: bpy.props.EnumProperty(
+    action: bpy.props.EnumProperty(
         name="Target",
         description="Determines which type of target patterns match",
         items=(
-            ('OBJ', "Objects"    , "Control visibility of objects"),
-            ('COL', "Collections", "Control visibility of collections"),
+            ('OBJV', "Object Visibility"    , "Control visibility of objects"),
+            ('OBJS', "Object Selection"     , "Control selection of objects"),
+            ('COL' , "Collection Visibility", "Control visibility of collections"),
         )
     )
     index: bpy.props.IntProperty(
@@ -232,4 +249,4 @@ class Control(bpy.types.PropertyGroup):
 
     @property
     def refpropstr(self):
-        return 'ob_ref' if self.trgt else 'col_ref'
+        return 'col_ref' if self.action == 'COL' else 'ob_ref'

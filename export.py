@@ -8,8 +8,8 @@ def serialize_ctrls(context):
     for c in context.scene.ctrls:
         states = []
         refattr = c.refpropstr
-        targets = vl.objects if c.trgt == 'OBJ' else \
-            vl.layer_collection.children
+        targets = vl.layer_collection.children if c.action == 'COL' \
+            else vl.objects
 
         for s in c.states:
             matches = []
@@ -32,7 +32,7 @@ def serialize_ctrls(context):
         controls.append({
             'name': c.name,
             'type': c.type,
-            'target': c.trgt,
+            'action': c.action,
             'states': states,
         })
 

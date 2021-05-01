@@ -39,10 +39,10 @@ class VIEW3D_PT_ControlCenter_Manage(bpy.types.Panel):
         # Per control settings
         lyt = self.layout
         ctrl = context.scene.ctrls[ops.ed_ctrl_idx]
-        refattr = 'ob_ref' if ctrl.trgt == 'OBJ' else 'col_ref'
+        refattr = ctrl.refpropstr
         lyt.prop(ctrl, "name")
         lyt.prop(ctrl, "type")
-        lyt.prop(ctrl, "trgt")
+        lyt.prop(ctrl, "action")
 
         # Draw the control's states
         for i, s in enumerate(ctrl.states):
