@@ -1,3 +1,13 @@
+<div align="center">
+<img src="https://github.com/D4KU/blender-control-center/blob/main/media/showcase.gif" width="661" />
+
+*Switching between sets of objects becomes easy*
+
+
+![](https://github.com/D4KU/blender-control-center/blob/main/media/new_control.gif)
+<br/>*Customize controls to fit your demands*
+</div>
+
 This blender addon expands on the idea of *View Layers*. It allows you to
 create controls like sliders, dropdowns, and checkboxes that you can hook up
 to objects or collections in your scene. Those objects are then set hidden or
