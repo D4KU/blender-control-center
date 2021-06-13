@@ -1,5 +1,6 @@
 import bpy
 from . import export
+from . import props
 
 # Index of control edited in 'Manage' panel
 ed_ctrl_idx = None
@@ -51,7 +52,11 @@ class AddState(bpy.types.Operator):
     )
 
     def execute(self, context):
-        context.scene.ctrls[ed_ctrl_idx].states.add()
+        ctrl = context.scene.ctrls[ed_ctrl_idx]
+        state = ctrl.states.add()
+        # Supply a first, empty pattern
+        state.patterns.add()
+        props.update_targets(ctrl, context)
         return {"FINISHED"}
 
 
@@ -65,6 +70,7 @@ class DelState(bpy.types.Operator):
     def execute(self, context):
         ctrl = context.scene.ctrls[ed_ctrl_idx]
         ctrl.states.remove(self.state_idx)
+        props.update_targets(ctrl, context)
         return {"FINISHED"}
 
 
@@ -95,6 +101,7 @@ class DelPattern(bpy.types.Operator):
     def execute(self, context):
         ctrl = context.scene.ctrls[ed_ctrl_idx]
         ctrl.states[self.state_idx].patterns.remove(self.pat_idx)
+        props.update_targets(ctrl, context)
         return {"FINISHED"}
 
 

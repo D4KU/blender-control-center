@@ -181,7 +181,7 @@ def update_type(ctrl, context):
 
 
 def set_index(ctrl, value):
-    ctrl.index = int(value)
+    ctrl.index = max(0, min(int(value), len(ctrl.states) - 1))
 
 
 # A Pattern is either a regular expression matching a target's name or a
@@ -265,6 +265,8 @@ class Control(bpy.types.PropertyGroup):
     pINT: bpy.props.IntProperty(
         get=lambda self: self.index,
         set=set_index,
+        min=0,
+        max=15,
     )
     pENUM: bpy.props.EnumProperty(
         name="",
